@@ -9,6 +9,7 @@ export const auth = betterAuth({
     "http://localhost:3000",
     "http://127.0.0.1:5173",
     "http://127.0.0.1:3000",
+    "https://helpdesk-production-e0ebcbf8.up.railway.app",
     ...(process.env.TRUSTED_ORIGINS ? process.env.TRUSTED_ORIGINS.split(",").map(o => o.trim()) : []),
   ],
   database: prismaAdapter(prisma, {
