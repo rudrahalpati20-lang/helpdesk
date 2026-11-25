@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "strict": false,
+    "paths": {
+      "core/*": [
+        "./core/*"
+      ]
+    }
+  },
+  "include": [
+    "server/src/**/*",
+    "server/src/types/**/*.d.ts",
+    "server/prisma.config.ts",
+    "core/**/*",
+    "e2e/**/*.ts",
+    "playwright.config.ts"
+  ]
+}
