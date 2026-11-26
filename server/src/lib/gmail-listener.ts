@@ -16,16 +16,16 @@ async function checkNewEmails(client: ImapFlow, userEmail: string) {
   try {
     const lock = await client.getMailboxLock("INBOX");
     try {
-      // If minUid is not initialized, set it to uidNext so we only process new emails arriving after start
+      // If minUid is not initialized, look at the last 15 unseen emails or recent emails
       if (minUid === 0) {
         const status = await client.status("INBOX", { uidNext: true });
-        minUid = status.uidNext || 1;
+        // Check recent emails (last 10 UIDs) instead of strictly waiting for future only
+        minUid = Math.max(1, (status.uidNext || 1) - 10);
         console.log(`[Gmail IMAP] Initialized. Monitoring incoming emails with UID >= ${minUid}`);
-        return;
       }
 
       // Search for unseen messages with UID >= minUid
-      const messages = await client.search({ seen: false, uid: `${minUid}:*` }, { uid: true });
+      const messages = await client.search({ uid: `${minUid}:*` }, { uid: true });
       if (!messages || messages.length === 0) {
         return;
       }
