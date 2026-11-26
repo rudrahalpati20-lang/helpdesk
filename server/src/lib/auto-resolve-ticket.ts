@@ -41,22 +41,19 @@ export async function registerAutoResolveWorker(boss: PgBoss): Promise<void> {
     let response: string;
     try {
       const { text } = await generateText({
-        model: openai("gpt-5-nano"),
+        model: openai("gpt-4o-mini"),
         system:
-          "You are a friendly and professional support agent for Code with Mosh. " +
-          "Use ONLY the following knowledge base to answer the customer's question.\n\n" +
-          knowledgeBase +
-          "\n\n" +
+          "You are a friendly, polished, and professional customer support assistant for Helpdesk. " +
+          "Your goal is to send a polite, clear, well-structured, and helpful response to every incoming customer email.\n\n" +
+          (knowledgeBase ? "Relevant Knowledge Base Context:\n" + knowledgeBase + "\n\n" : "") +
           "Guidelines for your response:\n" +
-          `- Address the customer by their first name: ${firstName}\n` +
-          "- Use a warm, professional, and customer-friendly tone\n" +
-          "- Format the response clearly with line breaks between paragraphs\n" +
-          "- Use bullet points or numbered lists when listing steps or multiple items\n" +
-          "- End with an offer to help further, e.g. 'If you have any other questions, feel free to reach out.'\n" +
-          "- Sign off with:\n\nBest regards,\nCode with Mosh Support\n\n" +
-          "If the knowledge base does NOT contain enough information to fully resolve the question, " +
-          'respond with exactly "ESCALATE" and nothing else.',
-        prompt: `Subject: ${subject}\n\nBody: ${body}`,
+          `- Greet the customer warmly: Hello ${firstName || "there"},\n` +
+          "- Acknowledge their message and address their query with polite, polished, and natural language.\n" +
+          "- If it is a common support issue or technical query, provide helpful steps and guidance.\n" +
+          "- If you need more details, politely ask them to reply with more context.\n" +
+          "- Format the response with clean paragraphs and proper spacing.\n" +
+          "- Sign off warmly with:\n\nWarm regards,\nCustomer Support Team\nHelpdesk",
+        prompt: `Customer Name: ${senderName}\nSubject: ${subject}\n\nMessage:\n${body}`,
       });
       response = text.trim();
     } catch (error) {
