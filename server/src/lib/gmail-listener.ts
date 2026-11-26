@@ -70,6 +70,25 @@ async function checkNewEmails(client: ImapFlow, userEmail: string) {
             continue;
           }
 
+          // Filter out automated system notifications (Sentry, Google, Railway, security alerts)
+          const isSystemEmail =
+            fromEmail.includes("getsentry.com") ||
+            fromEmail.includes("sentry.io") ||
+            fromEmail.includes("google.com") ||
+            fromEmail.includes("railway.app") ||
+            fromEmail.includes("no-reply") ||
+            fromEmail.includes("noreply") ||
+            subject.toLowerCase().includes("security alert") ||
+            subject.toLowerCase().includes("build failed") ||
+            subject.toLowerCase().includes("upgrade required") ||
+            subject.toLowerCase().includes("helpdesk-react");
+
+          if (isSystemEmail) {
+            console.log(`[Gmail IMAP] Filtered out system/bot notification: "${subject}" from <${fromEmail}>`);
+            await client.messageFlagsAdd(uid.toString(), ["\\Seen"], { uid: true });
+            continue;
+          }
+
           console.log(`[Gmail IMAP] 📩 Inbound email from "${fromName}" <${fromEmail}>: "${subject}"`);
 
           const result = await processInboundEmail({

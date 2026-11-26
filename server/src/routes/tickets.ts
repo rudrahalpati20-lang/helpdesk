@@ -167,4 +167,15 @@ router.patch("/:id", requireAuth, async (req, res) => {
   res.json(updated);
 });
 
+router.delete("/:id", requireAuth, async (req, res) => {
+  const id = parseId(req.params.id);
+  if (!id) {
+    res.status(400).json({ error: "Invalid ticket ID" });
+    return;
+  }
+  await prisma.reply.deleteMany({ where: { ticketId: id } });
+  await prisma.ticket.delete({ where: { id } });
+  res.json({ success: true });
+});
+
 export default router;
