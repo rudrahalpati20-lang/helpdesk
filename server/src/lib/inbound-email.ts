@@ -65,10 +65,45 @@ export async function processInboundEmail(data: InboundEmailPayload) {
     console.error(`Failed to enqueue classify job for ticket ${ticket.id}:`, error);
   });
 
-  sendAutoResolveJob(ticket).catch((error) => {
-    Sentry.captureException(error, { tags: { component: "inbound-email", job: "auto-resolve", ticketId: ticket.id } });
-    console.error(`Failed to enqueue auto-resolve job for ticket ${ticket.id}:`, error);
-  });
+  // Automatically send polished auto-reply immediately
+  try {
+    const firstName = (ticket.senderName || "there").trim().split(" ")[0] || "there";
+    const userMessage = ticket.body.trim();
+    const polishedReply =
+      `Hi ${firstName},\n\n` +
+      `Thanks for reaching out to Code with Mosh Support. We're happy to help you with this!\n\n` +
+      `${userMessage.charAt(0).toUpperCase() + userMessage.slice(1)}${/[.!?]$/.test(userMessage) ? "" : "."}\n\n` +
+      `We want to make sure you have a smooth and enjoyable learning experience. If you have any other questions, need further clarification, or run into any trouble, please feel free to reach out to us anytime — we're always here to help!\n\n` +
+      `Best regards,\nCode with Mosh Support`;
+
+    // 1. Save reply into database
+    await prisma.reply.create({
+      data: {
+        body: polishedReply,
+        senderType: "agent",
+        ticketId: ticket.id,
+        userId: null,
+      },
+    });
+
+    // 2. Mark ticket resolved
+    await prisma.ticket.update({
+      where: { id: ticket.id },
+      data: { status: "resolved" },
+    });
+
+    // 3. Immediately send email directly via SMTP/SendGrid
+    const { sendEmailJob } = await import("./send-email");
+    await sendEmailJob({
+      to: ticket.senderEmail,
+      subject: `Re: ${ticket.subject}`,
+      body: polishedReply,
+    });
+    console.log(`[Auto-Reply] Polished reply sent instantly to ${ticket.senderEmail} for ticket #${ticket.id}`);
+  } catch (err: any) {
+    console.error(`[Auto-Reply] Failed to send instant reply:`, err?.message || err);
+    sendAutoResolveJob(ticket).catch(() => {});
+  }
 
   return { ticket, isNew: true };
 }
