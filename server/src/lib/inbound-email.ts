@@ -46,6 +46,52 @@ export async function processInboundEmail(data: InboundEmailPayload) {
         userId: null,
       },
     });
+
+    // Count how many customer messages have been received for this ticket
+    const customerRepliesCount = await prisma.reply.count({
+      where: { ticketId: existingTicket.id, senderType: "customer" },
+    });
+    // Initial email is 1, so if customerRepliesCount >= 1, this is the 2nd (or more) email from customer
+    const shouldResolve = customerRepliesCount >= 1;
+
+    // Send polished auto-reply for this 2nd incoming email as well
+    try {
+      const firstName = (existingTicket.senderName || "there").trim().split(" ")[0] || "there";
+      const userMessage = data.body.trim();
+      const polishedReply =
+        `Hi ${firstName},\n\n` +
+        `Thanks for following up with Code with Mosh Support. We're happy to help you with this!\n\n` +
+        `${userMessage.charAt(0).toUpperCase() + userMessage.slice(1)}${/[.!?]$/.test(userMessage) ? "" : "."}\n\n` +
+        `We want to make sure you have a smooth and enjoyable learning experience. If you have any other questions, need further clarification, or run into any trouble, please feel free to reach out to us anytime — we're always here to help!\n\n` +
+        `Best regards,\nCode with Mosh Support`;
+
+      await prisma.reply.create({
+        data: {
+          body: polishedReply,
+          senderType: "agent",
+          ticketId: existingTicket.id,
+          userId: null,
+        },
+      });
+
+      if (shouldResolve) {
+        await prisma.ticket.update({
+          where: { id: existingTicket.id },
+          data: { status: "resolved" },
+        });
+        console.log(`[Auto-Reply] Ticket #${existingTicket.id} marked RESOLVED after 2nd email.`);
+      }
+
+      const { sendEmailJob } = await import("./send-email");
+      await sendEmailJob({
+        to: existingTicket.senderEmail,
+        subject: `Re: ${existingTicket.subject}`,
+        body: polishedReply,
+      });
+    } catch (err: any) {
+      console.error("[Auto-Reply] Failed to send reply for followup email:", err?.message || err);
+    }
+
     return { ticket: existingTicket, reply, isNew: false };
   }
 
@@ -86,10 +132,10 @@ export async function processInboundEmail(data: InboundEmailPayload) {
       },
     });
 
-    // 2. Mark ticket resolved
+    // Pehle email par Resolved nahi karna (Open / Processing rakhna hai, 2nd email par resolved hoga)
     await prisma.ticket.update({
       where: { id: ticket.id },
-      data: { status: "resolved" },
+      data: { status: "open" },
     });
 
     // 3. Immediately send email directly via SMTP/SendGrid
